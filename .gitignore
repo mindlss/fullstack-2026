@@ -1,0 +1,14 @@
+.env
+
+node_modules/
+
+dist/
+
+logs/
+uploads/
+
+prisma/dev.db
+
+.DS_Store
+.idea/
+.vscode/

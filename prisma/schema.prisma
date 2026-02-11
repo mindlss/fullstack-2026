@@ -1,0 +1,70 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  GUEST
+  UNVERIFIED
+  USER
+  TRUSTED
+  MODERATOR
+  ADMIN
+}
+
+// ==================== USERS ====================
+
+model User {
+  id        String    @id @default(uuid())
+  username  String    @unique
+  password  String    @map("password_hash")
+  role      UserRole  @default(UNVERIFIED)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  isBanned Boolean @default(false)
+
+  UserQuota     UserQuota[]
+
+  @@index([createdAt])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([isBanned])
+}
+
+// ==================== QUOTAS ====================
+
+model UserQuota {
+  id               String    @id @default(uuid())
+  userId           String
+  quotaType        String
+  limitValue       Int
+  currentValue     Int       @default(0)
+  resetInterval    String?
+  nextResetAt      DateTime?
+  overridesDefault Boolean   @default(false)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quotaType])
+}
+
+model RoleQuota {
+  id        String   @id @default(uuid())
+  role      UserRole @unique
+  quotas    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
