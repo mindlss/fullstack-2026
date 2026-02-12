@@ -17,12 +17,7 @@ const EnvSchema = z.object({
     LOG_DIR: z.string().default('./logs'),
     LOG_TO_FILE: z.enum(['true', 'false']).default('true'),
 
-    // ===== Jobs =====
-    JOBS_ENABLED: z.enum(['true', 'false']).default('true'),
-    JOBS_TICK_MS: z.coerce.number().int().positive().default(10_000),
-    JOBS_RUN_ON_START: z.enum(['true', 'false']).default('true'),
-
-    // split files
+    // ===== Split files =====
     LOG_APP_FILE_BASENAME: z.string().default('app.log'),
     LOG_ACCESS_FILE_BASENAME: z.string().default('access.log'),
     LOG_ERROR_FILE_BASENAME: z.string().default('error.log'),
@@ -31,6 +26,7 @@ const EnvSchema = z.object({
     LOG_ROTATE_SIZE: LogSizeSchema.default('50M'),
     LOG_MAX_FILES: z.coerce.number().int().positive().default(14),
 
+    // ===== External storage =====
     DATABASE_URL: z.string().min(1),
 
     MINIO_ENDPOINT: z.string().min(1),
@@ -40,17 +36,22 @@ const EnvSchema = z.object({
     MINIO_SECRET_KEY: z.string().min(1),
     MINIO_BUCKET: z.string().min(1),
     MINIO_PRESIGN_EXPIRES: z.coerce.number().int().positive().default(3600),
+    MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(104857600),
 
+    // ===== JWT =====
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.coerce.number().int().positive().default(900),
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(2592000),
 
-    MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(104857600),
-
-    SEED_ADMIN_EMAIL: z.string().default('admin@local'),
+    // ===== SEED =====
+    SEED_DEV_USERS: z.enum(['true', 'false']).default('false'),
     SEED_ADMIN_USERNAME: z.string().default('admin'),
     SEED_ADMIN_PASSWORD: z.string().default('admin12345'),
+    SEED_USER_USERNAME: z.string().default('user'),
+    SEED_USER_PASSWORD: z.string().default('user12345'),
+    SEED_DELETED_USERNAME: z.string().default('deleted'),
+    SEED_DELETED_PASSWORD: z.string().default('deleted12345'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -58,7 +59,7 @@ const parsed = EnvSchema.safeParse(process.env);
 if (!parsed.success) {
     console.error(
         '❌ Invalid environment variables:',
-        parsed.error.flatten().fieldErrors
+        parsed.error.flatten().fieldErrors,
     );
     process.exit(1);
 }

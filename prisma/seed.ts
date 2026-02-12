@@ -48,13 +48,11 @@ async function upsertRole(params: {
 async function ensurePermissions() {
     const keys = Object.values(Permissions);
 
-    // создаём permission записи (если уже есть — пропускаем)
     await prisma.permission.createMany({
         data: keys.map((key) => ({ key })),
         skipDuplicates: true,
     });
 
-    // вернём map key -> id для связок
     const rows = await prisma.permission.findMany({
         where: { key: { in: keys } },
         select: { id: true, key: true },
@@ -98,10 +96,9 @@ async function assignRole(params: {
 async function main() {
     console.log('🌱 Seeding...');
 
-    // 1) permissions
     const permIdByKey = await ensurePermissions();
 
-    // 2) roles
+    // ===== ROLES =====
     const adminRole = await upsertRole({
         key: 'admin',
         name: 'Admin',
@@ -118,7 +115,6 @@ async function main() {
         isSystem: true,
     });
 
-    // 3) role -> permissions
     const allPerms = Object.values(Permissions);
 
     await setRolePermissions(adminRole.id, allPerms, permIdByKey);
@@ -135,58 +131,61 @@ async function main() {
 
     await setRolePermissions(userRole.id, [Permission.USERS_READ], permIdByKey);
 
-    // 4) users
-    const admin = await upsertUser({
-        username: env.SEED_ADMIN_USERNAME,
-        password: env.SEED_ADMIN_PASSWORD,
-    });
+    // ===== USERS =====
 
-    const regular = await upsertUser({
-        username: 'user',
-        password: 'user12345',
-    });
+    if (env.SEED_DEV_USERS) {
+        const admin = await upsertUser({
+            username: env.SEED_ADMIN_USERNAME,
+            password: env.SEED_ADMIN_PASSWORD,
+        });
 
-    const deletedUser = await upsertUser({
-        username: 'deleted_user',
-        password: 'deleted_user12345',
-        deleted: true,
-    });
+        const regular = await upsertUser({
+            username: env.SEED_USER_USERNAME,
+            password: env.SEED_USER_PASSWORD,
+        });
 
-    // 5) assignments
-    await assignRole({
-        userId: admin.id,
-        roleId: adminRole.id,
-        createdById: admin.id,
-    });
-    await assignRole({
-        userId: regular.id,
-        roleId: userRole.id,
-        createdById: admin.id,
-    });
-    await assignRole({
-        userId: deletedUser.id,
-        roleId: userRole.id,
-        createdById: admin.id,
-    });
+        const deletedUser = await upsertUser({
+            username: env.SEED_DELETED_USERNAME,
+            password: env.SEED_DELETED_PASSWORD,
+            deleted: true,
+        });
+
+        await assignRole({
+            userId: admin.id,
+            roleId: adminRole.id,
+            createdById: admin.id,
+        });
+        await assignRole({
+            userId: regular.id,
+            roleId: userRole.id,
+            createdById: admin.id,
+        });
+        await assignRole({
+            userId: deletedUser.id,
+            roleId: userRole.id,
+            createdById: admin.id,
+        });
+
+        console.log('Users:', [
+            {
+                username: admin.username,
+                roles: ['admin'],
+                deletedAt: admin.deletedAt,
+            },
+            {
+                username: regular.username,
+                roles: ['user'],
+                deletedAt: regular.deletedAt,
+            },
+            {
+                username: deletedUser.username,
+                roles: ['user'],
+                deletedAt: deletedUser.deletedAt,
+            },
+        ]);
+    }
 
     console.log('✅ Seed done');
-    console.log('Users:', [
-        {
-            username: admin.username,
-            roles: ['admin'],
-            deletedAt: admin.deletedAt,
-        },
-        {
-            username: regular.username,
-            roles: ['user'],
-            deletedAt: regular.deletedAt,
-        },
-        {
-            username: deletedUser.username,
-            roles: ['user'],
-            deletedAt: deletedUser.deletedAt,
-        },
-    ]);
 }
 
 main()
