@@ -3,7 +3,7 @@ version: "3.9"
 services:
   minio:
     image: minio/minio
-    container_name: ocrwebapp-minio
+    container_name: minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -16,11 +16,11 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: ocrwebapp-postgres
+    container_name: postgres
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: ocrwebapp
+      POSTGRES_DB: db
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
 
   adminer:
     image: adminer
-    container_name: ocrwebapp-adminer
+    container_name: backend-adminer
     restart: always
     ports:
       - 8080:8080

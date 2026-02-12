@@ -2,18 +2,20 @@ import { Controller, Get, Path, Request, Route, Security, Tags } from 'tsoa';
 import type { Request as ExpressRequest } from 'express';
 
 import { apiError } from '../errors/ApiError';
-import { ensureViewer, requireCurrentUser } from '../tsoa/context';
 
 import { userIdParamsSchema } from '../schemas/user.schemas';
 
 import {
     getUserPublicById,
+    getUserRoleKeys,
     getUserSelf,
 } from '../../domain/users/user.service';
 
 import { toUserPublicDTO, toUserSelfDTO } from '../dto/user.dto';
 
 import type { UserPublicDTO, UserSelfDTO } from '../dto/user.dto';
+
+import { Scope } from '../../domain/auth/permissions';
 
 @Route('users')
 @Tags('Users')
@@ -23,14 +25,18 @@ export class UsersController extends Controller {
      * auth required
      */
     @Get('me')
-    @Security('cookieAuth')
+    @Security('cookieAuth', [Scope.LOAD_PERMISSIONS])
     public async getMe(@Request() req: ExpressRequest): Promise<UserSelfDTO> {
-        await requireCurrentUser(req);
-
-        const user = await getUserSelf(req.currentUser!.id);
+        const user = await getUserSelf(req.user!.id);
         if (!user) throw apiError(401, 'UNAUTHORIZED', 'User not found');
 
-        return toUserSelfDTO(user);
+        const roles = await getUserRoleKeys(req.user!.id);
+
+        return toUserSelfDTO({
+            ...user,
+            roles,
+            permissions: req.user?.permissions ?? [],
+        });
     }
 
     /**
@@ -43,16 +49,14 @@ export class UsersController extends Controller {
         @Path() id: string,
         @Request() req: ExpressRequest,
     ): Promise<UserPublicDTO> {
-        await ensureViewer(req);
-
         const params = userIdParamsSchema.parse({ id });
 
         const user = await getUserPublicById({
             userId: params.id,
-            viewer: req.viewer,
+            principal: req.user,
         });
-        if (!user) throw apiError(404, 'NOT_FOUND', 'User not found');
 
+        if (!user) throw apiError(404, 'NOT_FOUND', 'User not found');
         return toUserPublicDTO(user);
     }
 }

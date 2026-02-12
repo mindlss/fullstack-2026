@@ -7,22 +7,20 @@
 		"requestBodies": {},
 		"responses": {},
 		"schemas": {
-			"_36_Enums.UserRole": {
-				"type": "string",
-				"enum": [
-					"GUEST",
-					"UNVERIFIED",
-					"USER",
-					"TRUSTED",
-					"MODERATOR",
-					"ADMIN"
-				]
-			},
-			"UserRole": {
-				"$ref": "#/components/schemas/_36_Enums.UserRole"
-			},
 			"UserSelfDTO": {
 				"properties": {
+					"permissions": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"roles": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
 					"isBanned": {
 						"type": "boolean"
 					},
@@ -32,9 +30,6 @@
 					"createdAt": {
 						"type": "string"
 					},
-					"role": {
-						"$ref": "#/components/schemas/UserRole"
-					},
 					"username": {
 						"type": "string"
 					},
@@ -43,10 +38,11 @@
 					}
 				},
 				"required": [
+					"permissions",
+					"roles",
 					"isBanned",
 					"updatedAt",
 					"createdAt",
-					"role",
 					"username",
 					"id"
 				],
@@ -57,9 +53,6 @@
 					"createdAt": {
 						"type": "string"
 					},
-					"role": {
-						"$ref": "#/components/schemas/UserRole"
-					},
 					"username": {
 						"type": "string"
 					},
@@ -69,7 +62,6 @@
 				},
 				"required": [
 					"createdAt",
-					"role",
 					"username",
 					"id"
 				],
@@ -172,7 +164,7 @@
 		}
 	},
 	"info": {
-		"title": "ocrwebapp-backend",
+		"title": "backend",
 		"version": "0.0.1",
 		"contact": {}
 	},
@@ -198,7 +190,9 @@
 				],
 				"security": [
 					{
-						"cookieAuth": []
+						"cookieAuth": [
+							"auth.load_permissions"
+						]
 					}
 				],
 				"parameters": []

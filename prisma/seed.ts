@@ -2,12 +2,12 @@ import 'dotenv/config';
 import { prisma } from '../src/lib/prisma';
 import { hashPassword } from '../src/domain/auth/password.service';
 import { env } from '../src/config/env';
-import { UserRole } from '@prisma/client';
+import { Permission } from '../src/domain/auth/permissions';
 
 async function upsertUser(params: {
     username: string;
     password: string;
-    role: UserRole;
+    deleted?: boolean;
 }) {
     const passwordHash = await hashPassword(params.password);
 
@@ -16,81 +16,175 @@ async function upsertUser(params: {
         update: {
             username: params.username,
             password: passwordHash,
-            role: params.role,
+            deletedAt: params.deleted ? new Date() : null,
         },
         create: {
             username: params.username,
             password: passwordHash,
-            role: params.role,
+            deletedAt: params.deleted ? new Date() : null,
         },
     });
 }
 
-async function seedRoleQuotas() {
-    const quotas = [
-        {
-            role: UserRole.GUEST,
-            quotas: { daily_uploads: 0, max_file_size: 0, total_uploads: 0 },
+async function upsertRole(params: {
+    key: string;
+    name: string;
+    isSystem?: boolean;
+}) {
+    return prisma.role.upsert({
+        where: { key: params.key },
+        update: {
+            name: params.name,
+            isSystem: params.isSystem ?? true,
         },
-        {
-            role: UserRole.UNVERIFIED,
-            quotas: { daily_uploads: 0, max_file_size: 0, total_uploads: 0 },
+        create: {
+            key: params.key,
+            name: params.name,
+            isSystem: params.isSystem ?? true,
         },
-        {
-            role: UserRole.USER,
-            quotas: { daily_uploads: 0, max_file_size: 0, total_uploads: 0 },
-        },
-        {
-            role: UserRole.TRUSTED,
-            quotas: {
-                daily_uploads: 50,
-                max_file_size: 104857600,
-                total_uploads: 0,
-            },
-        },
-        {
-            role: UserRole.MODERATOR,
-            quotas: {
-                daily_uploads: 200,
-                max_file_size: 209715200,
-                total_uploads: 0,
-            },
-        },
-        {
-            role: UserRole.ADMIN,
-            quotas: {
-                daily_uploads: 1000,
-                max_file_size: 1073741824,
-                total_uploads: 0,
-            },
-        },
-    ];
+    });
+}
 
-    for (const q of quotas) {
-        await prisma.roleQuota.upsert({
-            where: { role: q.role },
-            update: { quotas: q.quotas },
-            create: { role: q.role, quotas: q.quotas },
-        });
-    }
+async function ensurePermissions() {
+    const keys = Object.values(Permissions);
+
+    // создаём permission записи (если уже есть — пропускаем)
+    await prisma.permission.createMany({
+        data: keys.map((key) => ({ key })),
+        skipDuplicates: true,
+    });
+
+    // вернём map key -> id для связок
+    const rows = await prisma.permission.findMany({
+        where: { key: { in: keys } },
+        select: { id: true, key: true },
+    });
+
+    return new Map(rows.map((p) => [p.key, p.id]));
+}
+
+async function setRolePermissions(
+    roleId: string,
+    permKeys: string[],
+    permIdByKey: Map<string, string>,
+) {
+    await prisma.rolePermission.createMany({
+        data: permKeys.map((k) => ({
+            roleId,
+            permissionId: permIdByKey.get(k)!,
+        })),
+        skipDuplicates: true,
+    });
+}
+
+async function assignRole(params: {
+    userId: string;
+    roleId: string;
+    createdById?: string;
+}) {
+    await prisma.roleAssignment.upsert({
+        where: {
+            userId_roleId: { userId: params.userId, roleId: params.roleId },
+        },
+        update: {},
+        create: {
+            userId: params.userId,
+            roleId: params.roleId,
+            createdById: params.createdById ?? null,
+        },
+    });
 }
 
 async function main() {
     console.log('🌱 Seeding...');
 
-    await seedRoleQuotas();
+    // 1) permissions
+    const permIdByKey = await ensurePermissions();
 
+    // 2) roles
+    const adminRole = await upsertRole({
+        key: 'admin',
+        name: 'Admin',
+        isSystem: true,
+    });
+    const userRole = await upsertRole({
+        key: 'user',
+        name: 'User',
+        isSystem: true,
+    });
+    const moderatorRole = await upsertRole({
+        key: 'moderator',
+        name: 'Moderator',
+        isSystem: true,
+    });
+
+    // 3) role -> permissions
+    const allPerms = Object.values(Permissions);
+
+    await setRolePermissions(adminRole.id, allPerms, permIdByKey);
+
+    await setRolePermissions(
+        moderatorRole.id,
+        [
+            Permission.USERS_READ,
+            Permission.USERS_READ_DELETED,
+            Permission.USERS_BAN,
+        ],
+        permIdByKey,
+    );
+
+    await setRolePermissions(userRole.id, [Permission.USERS_READ], permIdByKey);
+
+    // 4) users
     const admin = await upsertUser({
         username: env.SEED_ADMIN_USERNAME,
         password: env.SEED_ADMIN_PASSWORD,
-        role: UserRole.ADMIN,
+    });
+
+    const regular = await upsertUser({
+        username: 'user',
+        password: 'user12345',
+    });
+
+    const deletedUser = await upsertUser({
+        username: 'deleted_user',
+        password: 'deleted_user12345',
+        deleted: true,
+    });
+
+    // 5) assignments
+    await assignRole({
+        userId: admin.id,
+        roleId: adminRole.id,
+        createdById: admin.id,
+    });
+    await assignRole({
+        userId: regular.id,
+        roleId: userRole.id,
+        createdById: admin.id,
+    });
+    await assignRole({
+        userId: deletedUser.id,
+        roleId: userRole.id,
+        createdById: admin.id,
     });
 
     console.log('✅ Seed done');
     console.log('Users:', [
         {
             username: admin.username,
-            role: admin.role,
+            roles: ['admin'],
+            deletedAt: admin.deletedAt,
+        },
+        {
+            username: regular.username,
+            roles: ['user'],
+            deletedAt: regular.deletedAt,
+        },
+        {
+            username: deletedUser.username,
+            roles: ['user'],
+            deletedAt: deletedUser.deletedAt,
         },
     ]);
 }
