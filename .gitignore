@@ -14,3 +14,4 @@ prisma/dev.db
 .vscode/
 
 docker/data/
+coverage/
