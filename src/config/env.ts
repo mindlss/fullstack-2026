@@ -47,11 +47,11 @@ const EnvSchema = z.object({
     // ===== SEED =====
     SEED_DEV_USERS: z.enum(['true', 'false']).default('false'),
     SEED_ADMIN_USERNAME: z.string().default('admin'),
-    SEED_ADMIN_PASSWORD: z.string().default('admin12345'),
+    SEED_ADMIN_PASSWORD: z.string().min(8).default('admin12345'),
     SEED_USER_USERNAME: z.string().default('user'),
-    SEED_USER_PASSWORD: z.string().default('user12345'),
+    SEED_USER_PASSWORD: z.string().min(8).default('user12345'),
     SEED_DELETED_USERNAME: z.string().default('deleted'),
-    SEED_DELETED_PASSWORD: z.string().default('deleted12345'),
+    SEED_DELETED_PASSWORD: z.string().min(8).default('deleted12345'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
