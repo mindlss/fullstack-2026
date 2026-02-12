@@ -1,14 +1,8 @@
 import type { Request } from 'express';
 import { verifyAccessToken } from '../../domain/auth/token.service';
 import { apiError } from '../errors/ApiError';
-import { UserRole } from '@prisma/client';
 import { env } from '../../config/env';
-
-function isUserRole(v: unknown): v is UserRole {
-    return (
-        typeof v === 'string' && Object.values(UserRole).includes(v as UserRole)
-    );
-}
+import { prisma } from '../../lib/prisma';
 
 function readAccessTokenFromCookie(req: Request): string | null {
     const token = (req as any).cookies?.accessToken;
@@ -24,18 +18,39 @@ function readBearerFallback(req: Request): string | null {
     return token || null;
 }
 
+async function userHasAllPermissions(userId: string, permissionKeys: string[]) {
+    if (!permissionKeys.length) return true;
+
+    const rows = await prisma.permission.findMany({
+        where: {
+            key: { in: permissionKeys },
+            roles: {
+                some: {
+                    role: {
+                        assignments: {
+                            some: { userId },
+                        },
+                    },
+                },
+            },
+        },
+        select: { key: true },
+    });
+
+    return rows.length === new Set(permissionKeys).size;
+}
+
 /**
  * tsoa hook: called from generated routes when you use @Security(...)
  *
  * - @Security("cookieAuth")           -> requires accessToken cookie (401 if missing/invalid)
  * - @Security("optionalCookieAuth")   -> parses cookie if present, ignores if missing/invalid
  *
- * Scopes are used for roles: @Security("cookieAuth", ["ADMIN"])
  */
 export async function expressAuthentication(
     req: Request,
     securityName: string,
-    scopes?: string[]
+    scopes?: string[],
 ): Promise<any> {
     const token =
         readAccessTokenFromCookie(req) ??
@@ -46,18 +61,13 @@ export async function expressAuthentication(
 
         try {
             const payload = verifyAccessToken(token);
-
-            const role = isUserRole(payload.role)
-                ? payload.role
-                : UserRole.UNVERIFIED;
-            const principal = { id: payload.sub, role };
+            const principal = { id: payload.sub };
 
             if (scopes?.length) {
-                const allowed = new Set(scopes);
-                if (!allowed.has(principal.role)) {
-                    throw apiError(403, 'FORBIDDEN', 'Insufficient role', {
+                const ok = await userHasAllPermissions(principal.id, scopes);
+                if (!ok) {
+                    throw apiError(403, 'FORBIDDEN', 'Missing permissions', {
                         required: scopes,
-                        got: principal.role,
                     });
                 }
             }
@@ -74,18 +84,13 @@ export async function expressAuthentication(
         }
 
         const payload = verifyAccessToken(token);
-
-        const role = isUserRole(payload.role)
-            ? payload.role
-            : UserRole.UNVERIFIED;
-        const principal = { id: payload.sub, role };
+        const principal = { id: payload.sub };
 
         if (scopes?.length) {
-            const allowed = new Set(scopes);
-            if (!allowed.has(principal.role)) {
-                throw apiError(403, 'FORBIDDEN', 'Insufficient role', {
+            const ok = await userHasAllPermissions(principal.id, scopes);
+            if (!ok) {
+                throw apiError(403, 'FORBIDDEN', 'Missing permissions', {
                     required: scopes,
-                    got: principal.role,
                 });
             }
         }

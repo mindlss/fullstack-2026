@@ -7,64 +7,83 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// ==================== ENUMS ====================
-
-enum UserRole {
-  GUEST
-  UNVERIFIED
-  USER
-  TRUSTED
-  MODERATOR
-  ADMIN
-}
-
 // ==================== USERS ====================
 
 model User {
-  id        String    @id @default(uuid())
-  username  String    @unique
-  password  String    @map("password_hash")
-  role      UserRole  @default(UNVERIFIED)
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   @map("password_hash")
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   isBanned Boolean @default(false)
 
-  UserQuota     UserQuota[]
+  assignments RoleAssignment[] @relation("RoleAssignments_User")
+  assignmentsCreated RoleAssignment[] @relation("RoleAssignments_Creator")
 
   @@index([createdAt])
-  @@index([role])
   @@index([deletedAt])
   @@index([isBanned])
 }
 
-// ==================== QUOTAS ====================
+// ==================== RBAC ====================
 
-model UserQuota {
-  id               String    @id @default(uuid())
-  userId           String
-  quotaType        String
-  limitValue       Int
-  currentValue     Int       @default(0)
-  resetInterval    String?
-  nextResetAt      DateTime?
-  overridesDefault Boolean   @default(false)
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+model Role {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, quotaType])
-}
-
-model RoleQuota {
-  id        String   @id @default(uuid())
-  role      UserRole @unique
-  quotas    Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+
+  @@index([key])
 }
 
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@index([key])
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model RoleAssignment {
+  id           String   @id @default(uuid())
+  userId       String
+  roleId       String
+
+  createdAt    DateTime @default(now())
+  createdById  String?
+
+  user      User @relation("RoleAssignments_User", fields: [userId], references: [id], onDelete: Cascade)
+  role      Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdBy User? @relation("RoleAssignments_Creator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}

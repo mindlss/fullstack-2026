@@ -1,7 +1,5 @@
 import { Controller, Get, Path, Request, Route, Security, Tags } from 'tsoa';
 import type { Request as ExpressRequest } from 'express';
-import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
 
 import { apiError } from '../errors/ApiError';
 import { ensureViewer, requireCurrentUser } from '../tsoa/context';
@@ -34,7 +32,7 @@ export class UsersController extends Controller {
 
         return toUserSelfDTO(user);
     }
-    
+
     /**
      * GET /users/:id
      * public profile, viewer-aware
