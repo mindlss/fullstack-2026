@@ -14,8 +14,25 @@ import { errorMiddleware } from './http/middlewares/error.middleware';
 import { RegisterRoutes } from './generated/routes';
 import swaggerSpec from './generated/swagger.json';
 
+import cors from 'cors';
+
 export function createApp() {
     const app = express();
+
+    app.use(
+        cors({
+            origin: 'http://localhost:5173',
+            credentials: true,
+        }),
+    );
+
+    app.options(
+        '*',
+        cors({
+            origin: 'http://localhost:5173',
+            credentials: true,
+        }),
+    );
 
     app.disable('x-powered-by');
     app.use(requestIdMiddleware);
@@ -53,7 +70,7 @@ export function createApp() {
                     };
                 },
             },
-        })
+        }),
     );
 
     app.use(express.json({ limit: '2mb' }));
