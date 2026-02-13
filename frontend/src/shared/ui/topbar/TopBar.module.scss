@@ -1,0 +1,137 @@
+:root {
+    --topbar-h: 72px;
+    --topbar-gap: 14px;
+    --topbar-side: 10px;
+}
+
+.topBar {
+    position: fixed;
+    z-index: 5;
+
+    top: calc(env(safe-area-inset-top) + 10px);
+    left: var(--topbar-side);
+    right: var(--topbar-side);
+
+    height: var(--topbar-h);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    box-sizing: border-box;
+    padding: 14px 18px;
+
+    background: rgba(17, 18, 19, 0.75);
+    border: 1px solid #202020;
+    border-radius: 16px;
+
+    backdrop-filter: blur(10px);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+    min-width: 0;
+}
+
+.brandDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #1ab6a9;
+    flex: 0 0 auto;
+}
+
+.brandText {
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.2px;
+}
+
+.brandHint {
+    color: #8c8d90;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.topActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ghostButton {
+    padding: 11px 14px;
+    background: rgba(26, 182, 169, 0.1);
+    border: 1px solid rgba(26, 182, 169, 0.45);
+    border-radius: 10px;
+    color: #1ab6a9;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+        background: rgba(26, 182, 169, 0.18);
+        transform: translateY(-2px);
+    }
+
+    &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .ghostButton {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 768px) {
+    :root {
+        --topbar-h: 118px;
+        --topbar-gap: 12px;
+        --topbar-side: 8px;
+    }
+
+    .topBar {
+        padding: 12px 12px;
+        border-radius: 14px;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .brand {
+        justify-content: flex-start;
+    }
+
+    .brandHint {
+        display: none;
+    }
+
+    .topActions {
+        width: 100%;
+    }
+
+    .ghostButton {
+        width: 100%;
+    }
+}
+
+@media (max-width: 360px) {
+    :root {
+        --topbar-h: 126px;
+        --topbar-gap: 10px;
+        --topbar-side: 6px;
+    }
+}
