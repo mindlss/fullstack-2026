@@ -20,6 +20,7 @@ import { registerUser, loginUser } from '../../domain/auth/auth.service';
 import {
     signAccessToken,
     signRefreshToken,
+    verifyAccessToken,
     verifyRefreshToken,
 } from '../../domain/auth/token.service';
 
@@ -33,6 +34,7 @@ import {
 import type { ErrorEnvelopeDTO } from '../dto/error.dto';
 import type { OkDTO } from '../dto/common.dto';
 import { registerSchema, loginSchema } from '../schemas/auth.schemas';
+import { revokeToken } from '../../domain/auth/tokenBlacklist.service';
 
 @Route('auth')
 @Tags('Auth')
@@ -96,19 +98,25 @@ export class AuthController extends Controller {
         const refreshToken = (req as any).cookies?.refreshToken as
             | string
             | undefined;
-        if (!refreshToken) {
+        if (!refreshToken)
             throw apiError(401, 'UNAUTHORIZED', 'Missing refresh token');
-        }
 
-        let payload: { sub: string };
+        let payload;
         try {
-            payload = verifyRefreshToken(refreshToken);
+            payload = await verifyRefreshToken(refreshToken);
         } catch {
             throw apiError(401, 'UNAUTHORIZED', 'Invalid refresh token');
         }
 
+        await revokeToken({
+            kind: 'refresh',
+            jti: payload.jti,
+            exp: payload.exp,
+        });
+
         const newAccess = signAccessToken({ sub: payload.sub });
         const newRefresh = signRefreshToken({ sub: payload.sub });
+
         const res = this.mustGetRes(req);
         this.setAuthCookies(res, newAccess, newRefresh);
 
@@ -118,6 +126,29 @@ export class AuthController extends Controller {
     @Post('logout')
     @Security('cookieAuth')
     public async logout(@Request() req: ExpressRequest): Promise<OkDTO> {
+        const accessToken = (req as any).cookies?.accessToken as
+            | string
+            | undefined;
+        const refreshToken = (req as any).cookies?.refreshToken as
+            | string
+            | undefined;
+
+        if (accessToken) {
+            try {
+                const p = await verifyAccessToken(accessToken);
+                await revokeToken({ kind: 'access', jti: p.jti, exp: p.exp });
+            } catch {
+                // ignore this
+            }
+        }
+
+        if (refreshToken) {
+            try {
+                const p = await verifyRefreshToken(refreshToken);
+                await revokeToken({ kind: 'refresh', jti: p.jti, exp: p.exp });
+            } catch {}
+        }
+
         const res = this.mustGetRes(req);
         this.clearAuthCookies(res);
         return { status: 'ok' };
@@ -152,13 +183,13 @@ export class AuthController extends Controller {
             httpOnly: true,
             secure: isProd,
             sameSite: 'lax',
-            path: '/auth/refresh',
+            path: '/',
             maxAge: env.JWT_REFRESH_EXPIRES_IN * 1000,
         });
     }
 
     private clearAuthCookies(res: ExpressResponse) {
         res.cookie('accessToken', '', { path: '/', maxAge: 0 });
-        res.cookie('refreshToken', '', { path: '/auth/refresh', maxAge: 0 });
+        res.cookie('refreshToken', '', { path: '/', maxAge: 0 });
     }
 }

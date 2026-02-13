@@ -84,7 +84,7 @@ export async function expressAuthentication(
         if (!token) return undefined;
 
         try {
-            const payload = verifyAccessToken(token);
+            const payload = await verifyAccessToken(token);
 
             const u = await loadUserMinimal(payload.sub);
             if (!u || u.deletedAt) return undefined;
@@ -107,7 +107,8 @@ export async function expressAuthentication(
             }
 
             return principal;
-        } catch {
+        } catch (e) {
+            if ((e as any)?.status === 403) throw e;
             return undefined;
         }
     }
@@ -115,7 +116,7 @@ export async function expressAuthentication(
     if (securityName === 'cookieAuth') {
         if (!token) throw apiError(401, 'UNAUTHORIZED', 'Missing access token');
 
-        const payload = verifyAccessToken(token);
+        const payload = await verifyAccessToken(token);
 
         const u = await loadUserMinimal(payload.sub);
         if (!u || u.deletedAt) {

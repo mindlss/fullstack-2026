@@ -26,6 +26,10 @@ const EnvSchema = z.object({
     LOG_ROTATE_SIZE: LogSizeSchema.default('50M'),
     LOG_MAX_FILES: z.coerce.number().int().positive().default(14),
 
+    // ===== Redis =====
+    REDIS_HOST: z.string().min(1),
+    REDIS_PORT: z.coerce.number().int().positive(),
+
     // ===== External storage =====
     DATABASE_URL: z.string().min(1),
 

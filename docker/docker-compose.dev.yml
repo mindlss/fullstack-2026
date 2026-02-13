@@ -32,3 +32,25 @@ services:
     restart: always
     ports:
       - 8080:8080
+
+  redis:
+    image: redis:7-alpine
+    container_name: backend-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: backend-redisinsight
+    ports:
+      - "8001:5540"
+    depends_on:
+      - redis
