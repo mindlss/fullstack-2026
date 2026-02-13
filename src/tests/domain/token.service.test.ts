@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
+
+vi.mock('../../domain/auth/tokenBlacklist.service', () => ({
+    isTokenRevoked: vi.fn().mockResolvedValue(false),
+}));
+
 import {
     signAccessToken,
     verifyAccessToken,
@@ -8,23 +13,31 @@ import {
 } from '../../domain/auth/token.service';
 
 describe('token.service', () => {
-    it('sign/verify access token roundtrip', () => {
+    it('sign/verify access token roundtrip', async () => {
         const token = signAccessToken({ sub: 'u1' });
-        const payload = verifyAccessToken(token);
+        const payload = await verifyAccessToken(token);
         expect(payload.sub).toBe('u1');
+        expect(payload.jti).toBeTruthy();
+        expect(payload.exp).toBeTypeOf('number');
     });
 
-    it('sign/verify refresh token roundtrip', () => {
+    it('sign/verify refresh token roundtrip', async () => {
         const token = signRefreshToken({ sub: 'u2' });
-        const payload = verifyRefreshToken(token);
+        const payload = await verifyRefreshToken(token);
         expect(payload.sub).toBe('u2');
+        expect(payload.jti).toBeTruthy();
+        expect(payload.exp).toBeTypeOf('number');
     });
 
-    it('verifyAccessToken throws on invalid token', () => {
-        expect(() => verifyAccessToken('nope')).toThrow(jwt.JsonWebTokenError);
+    it('verifyAccessToken throws on invalid token', async () => {
+        await expect(verifyAccessToken('nope')).rejects.toThrow(
+            jwt.JsonWebTokenError,
+        );
     });
 
-    it('verifyRefreshToken throws on invalid token', () => {
-        expect(() => verifyRefreshToken('nope')).toThrow(jwt.JsonWebTokenError);
+    it('verifyRefreshToken throws on invalid token', async () => {
+        await expect(verifyRefreshToken('nope')).rejects.toThrow(
+            jwt.JsonWebTokenError,
+        );
     });
 });

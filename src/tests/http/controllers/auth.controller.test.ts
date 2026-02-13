@@ -8,12 +8,15 @@ const h = vi.hoisted(() => {
     const signRefreshToken = vi.fn();
     const verifyRefreshToken = vi.fn();
 
+    const revokeToken = vi.fn();
+
     return {
         registerUser,
         loginUser,
         signAccessToken,
         signRefreshToken,
         verifyRefreshToken,
+        revokeToken,
     };
 });
 
@@ -26,6 +29,10 @@ vi.mock('../../../domain/auth/token.service', () => ({
     signAccessToken: h.signAccessToken,
     signRefreshToken: h.signRefreshToken,
     verifyRefreshToken: h.verifyRefreshToken,
+}));
+
+vi.mock('../../../domain/auth/tokenBlacklist.service', () => ({
+    revokeToken: h.revokeToken,
 }));
 
 async function importAuthController() {
@@ -61,6 +68,8 @@ function expectCookieCall(
 beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+
+    h.revokeToken.mockResolvedValue(undefined);
 });
 
 describe('http/controllers/auth.controller', () => {
@@ -113,7 +122,7 @@ describe('http/controllers/auth.controller', () => {
             httpOnly: true,
             secure: true,
             sameSite: 'lax',
-            path: '/auth/refresh',
+            path: '/',
             maxAge: 3600 * 1000,
         });
 
@@ -163,7 +172,7 @@ describe('http/controllers/auth.controller', () => {
         });
         expectCookieCall(res, 'refreshToken', 'refresh-2', {
             secure: false,
-            path: '/auth/refresh',
+            path: '/',
             maxAge: 20 * 1000,
         });
 
@@ -207,9 +216,7 @@ describe('http/controllers/auth.controller', () => {
         const res = makeRes();
         const req = makeReq({ res, cookies: { refreshToken: 'bad' } });
 
-        h.verifyRefreshToken.mockImplementation(() => {
-            throw new Error('bad token');
-        });
+        h.verifyRefreshToken.mockRejectedValue(new Error('bad token'));
 
         await expect(ctrl.refresh(req)).rejects.toMatchObject({
             name: 'ApiError',
@@ -233,13 +240,24 @@ describe('http/controllers/auth.controller', () => {
         const res = makeRes();
         const req = makeReq({ res, cookies: { refreshToken: 'r1' } });
 
-        h.verifyRefreshToken.mockReturnValue({ sub: 'u9' });
+        h.verifyRefreshToken.mockResolvedValue({
+            sub: 'u9',
+            jti: 'j1',
+            exp: 2_000_000_000,
+        });
+
         h.signAccessToken.mockReturnValue('new-access');
         h.signRefreshToken.mockReturnValue('new-refresh');
 
         const out = await ctrl.refresh(req);
 
         expect(h.verifyRefreshToken).toHaveBeenCalledWith('r1');
+        expect(h.revokeToken).toHaveBeenCalledWith({
+            kind: 'refresh',
+            jti: 'j1',
+            exp: 2_000_000_000,
+        });
+
         expect(h.signAccessToken).toHaveBeenCalledWith({ sub: 'u9' });
         expect(h.signRefreshToken).toHaveBeenCalledWith({ sub: 'u9' });
 
@@ -248,7 +266,7 @@ describe('http/controllers/auth.controller', () => {
             maxAge: 10 * 1000,
         });
         expectCookieCall(res, 'refreshToken', 'new-refresh', {
-            path: '/auth/refresh',
+            path: '/',
             maxAge: 20 * 1000,
         });
 
@@ -273,10 +291,7 @@ describe('http/controllers/auth.controller', () => {
         const out = await ctrl.logout(req);
 
         expectCookieCall(res, 'accessToken', '', { path: '/', maxAge: 0 });
-        expectCookieCall(res, 'refreshToken', '', {
-            path: '/auth/refresh',
-            maxAge: 0,
-        });
+        expectCookieCall(res, 'refreshToken', '', { path: '/', maxAge: 0 });
 
         expect(out).toEqual({ status: 'ok' });
     });
