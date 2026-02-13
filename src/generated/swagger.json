@@ -67,14 +67,46 @@
 				],
 				"type": "object"
 			},
-			"AuthResponseDTO": {
+			"HealthDTO": {
 				"properties": {
-					"user": {
-						"$ref": "#/components/schemas/UserSelfDTO"
+					"uptimeSec": {
+						"type": "number",
+						"format": "double"
+					},
+					"timestamp": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
 					}
 				},
 				"required": [
-					"user"
+					"uptimeSec",
+					"timestamp",
+					"env",
+					"status"
+				],
+				"type": "object"
+			},
+			"OkDTO": {
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"status"
 				],
 				"type": "object"
 			},
@@ -101,6 +133,40 @@
 				},
 				"required": [
 					"error"
+				],
+				"type": "object"
+			},
+			"StoragePingDTO": {
+				"properties": {
+					"exists": {
+						"type": "boolean"
+					},
+					"bucket": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"exists",
+					"bucket",
+					"status"
+				],
+				"type": "object"
+			},
+			"AuthResponseDTO": {
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/UserSelfDTO"
+					}
+				},
+				"required": [
+					"user"
 				],
 				"type": "object"
 			},
@@ -131,21 +197,6 @@
 				"required": [
 					"password",
 					"username"
-				],
-				"type": "object"
-			},
-			"OkDTO": {
-				"properties": {
-					"status": {
-						"type": "string",
-						"enum": [
-							"ok"
-						],
-						"nullable": false
-					}
-				},
-				"required": [
-					"status"
 				],
 				"type": "object"
 			}
@@ -232,6 +283,128 @@
 						}
 					}
 				]
+			}
+		},
+		"/health": {
+			"get": {
+				"operationId": "GetHealth",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HealthDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /health\npublic health info",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/db/ping": {
+			"get": {
+				"operationId": "DbPing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /db/ping\nchecks DB connectivity",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/storage/ping": {
+			"get": {
+				"operationId": "StoragePing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/StoragePingDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /storage/ping\nchecks MinIO bucket availability",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/redis/ping": {
+			"get": {
+				"operationId": "RedisPing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /redis/ping\nchecks Redis connectivity",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
 			}
 		},
 		"/auth/register": {
