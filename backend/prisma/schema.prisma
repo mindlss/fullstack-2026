@@ -1,0 +1,89 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==================== USERS ====================
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   @map("password_hash")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  isBanned Boolean @default(false)
+
+  assignments RoleAssignment[] @relation("RoleAssignments_User")
+  assignmentsCreated RoleAssignment[] @relation("RoleAssignments_Creator")
+
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([isBanned])
+}
+
+// ==================== RBAC ====================
+
+model Role {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+
+  @@index([key])
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@index([key])
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model RoleAssignment {
+  id           String   @id @default(uuid())
+  userId       String
+  roleId       String
+
+  createdAt    DateTime @default(now())
+  createdById  String?
+
+  user      User @relation("RoleAssignments_User", fields: [userId], references: [id], onDelete: Cascade)
+  role      Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdBy User? @relation("RoleAssignments_Creator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}

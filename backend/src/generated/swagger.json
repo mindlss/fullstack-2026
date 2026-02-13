@@ -1,0 +1,608 @@
+{
+	"openapi": "3.0.0",
+	"components": {
+		"examples": {},
+		"headers": {},
+		"parameters": {},
+		"requestBodies": {},
+		"responses": {},
+		"schemas": {
+			"UserSelfDTO": {
+				"properties": {
+					"permissions": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"roles": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"isBanned": {
+						"type": "boolean"
+					},
+					"updatedAt": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"permissions",
+					"roles",
+					"isBanned",
+					"updatedAt",
+					"createdAt",
+					"username",
+					"id"
+				],
+				"type": "object"
+			},
+			"UserPublicDTO": {
+				"properties": {
+					"createdAt": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"createdAt",
+					"username",
+					"id"
+				],
+				"type": "object"
+			},
+			"HealthDTO": {
+				"properties": {
+					"uptimeSec": {
+						"type": "number",
+						"format": "double"
+					},
+					"timestamp": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"uptimeSec",
+					"timestamp",
+					"env",
+					"status"
+				],
+				"type": "object"
+			},
+			"OkDTO": {
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"status"
+				],
+				"type": "object"
+			},
+			"ErrorEnvelopeDTO": {
+				"properties": {
+					"error": {
+						"properties": {
+							"requestId": {
+								"type": "string"
+							},
+							"details": {},
+							"message": {
+								"type": "string"
+							},
+							"code": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"code"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"error"
+				],
+				"type": "object"
+			},
+			"StoragePingDTO": {
+				"properties": {
+					"exists": {
+						"type": "boolean"
+					},
+					"bucket": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"exists",
+					"bucket",
+					"status"
+				],
+				"type": "object"
+			},
+			"AuthResponseDTO": {
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/UserSelfDTO"
+					}
+				},
+				"required": [
+					"user"
+				],
+				"type": "object"
+			},
+			"RegisterBodyDTO": {
+				"properties": {
+					"password": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"password",
+					"username"
+				],
+				"type": "object"
+			},
+			"LoginBodyDTO": {
+				"properties": {
+					"password": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"password",
+					"username"
+				],
+				"type": "object"
+			}
+		},
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "accessToken"
+			},
+			"optionalCookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "accessToken"
+			}
+		}
+	},
+	"info": {
+		"title": "backend",
+		"version": "0.0.1",
+		"contact": {}
+	},
+	"paths": {
+		"/users/me": {
+			"get": {
+				"operationId": "GetMe",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UserSelfDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /users/me\nauth required",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": [
+							"auth.load_permissions"
+						]
+					}
+				],
+				"parameters": []
+			}
+		},
+		"/users/{id}": {
+			"get": {
+				"operationId": "GetUserPublic",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UserPublicDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /users/:id\npublic profile, viewer-aware",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"optionalCookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/health": {
+			"get": {
+				"operationId": "GetHealth",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HealthDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /health\npublic health info",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/db/ping": {
+			"get": {
+				"operationId": "DbPing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /db/ping\nchecks DB connectivity",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/storage/ping": {
+			"get": {
+				"operationId": "StoragePing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/StoragePingDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /storage/ping\nchecks MinIO bucket availability",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/redis/ping": {
+			"get": {
+				"operationId": "RedisPing",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Internal error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								}
+							}
+						}
+					}
+				},
+				"description": "GET /redis/ping\nchecks Redis connectivity",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/auth/register": {
+			"post": {
+				"operationId": "Register",
+				"responses": {
+					"201": {
+						"description": "Created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthResponseDTO"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								},
+								"examples": {
+									"Example 1": {
+										"value": {
+											"error": {
+												"code": "VALIDATION_ERROR",
+												"message": "Invalid request",
+												"details": {
+													"issues": [
+														{
+															"path": [
+																"email"
+															],
+															"message": "Invalid email"
+														}
+													]
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"Auth"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RegisterBodyDTO"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/login": {
+			"post": {
+				"operationId": "Login",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AuthResponseDTO"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								},
+								"examples": {
+									"Example 1": {
+										"value": {
+											"error": {
+												"code": "VALIDATION_ERROR",
+												"message": "Invalid request",
+												"details": {
+													"issues": [
+														{
+															"path": [
+																"email"
+															],
+															"message": "Invalid email"
+														}
+													]
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Invalid credentials",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorEnvelopeDTO"
+								},
+								"examples": {
+									"Example 1": {
+										"value": {
+											"error": {
+												"code": "INVALID_CREDENTIALS",
+												"message": "Invalid email or password"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"Auth"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/LoginBodyDTO"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/refresh": {
+			"post": {
+				"operationId": "Refresh",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"Auth"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/auth/logout": {
+			"post": {
+				"operationId": "Logout",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OkDTO"
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": []
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "/"
+		}
+	]
+}
