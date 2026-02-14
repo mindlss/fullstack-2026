@@ -15,13 +15,13 @@ export default function Routing() {
     return (
         <Suspense fallback={null}>
             <Routes>
-                {/* Публичные страницы */}
+                {/* Публичные страницы (guest) */}
                 <Route element={<PublicOnly />}>
                     <Route path={PageRoutes.login} element={<LoginPage />} />
                     <Route path={PageRoutes.reg} element={<RegisterPage />} />
                 </Route>
 
-                {/* Приватные страницы */}
+                {/* Приватные страницы (user) */}
                 <Route element={<RequireAuth />}>
                     <Route path={PageRoutes.home} element={<HomePage />} />
                     <Route path={PageRoutes.health} element={<HealthPage />} />
