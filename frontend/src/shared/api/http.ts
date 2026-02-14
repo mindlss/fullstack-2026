@@ -1,18 +1,35 @@
 import type { ErrorEnvelopeDTO } from './types';
+import { emitApiError } from './events';
+
+export const API_ERROR_CODES = {
+    TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
+    INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+    BANNED: 'BANNED',
+    UNAUTHORIZED: 'UNAUTHORIZED',
+    INTERNAL: 'INTERNAL',
+    NOT_FOUND: 'NOT_FOUND',
+    FORBIDDEN: 'FORBIDDEN',
+    VALIDATION_ERROR: 'VALIDATION_ERROR',
+} as const;
+
+export type ApiErrorCode =
+    (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
 
 export class ApiError extends Error {
     readonly status: number;
-    readonly code?: string;
+    readonly code?: ApiErrorCode;
     readonly requestId?: string;
     readonly details?: unknown;
+    readonly retryAfterSec?: number;
 
     constructor(
         message: string,
         init: {
             status: number;
-            code?: string;
+            code?: ApiErrorCode;
             requestId?: string;
             details?: unknown;
+            retryAfterSec?: number;
         },
     ) {
         super(message);
@@ -21,6 +38,11 @@ export class ApiError extends Error {
         this.code = init.code;
         this.requestId = init.requestId;
         this.details = init.details;
+        this.retryAfterSec = init.retryAfterSec;
+    }
+
+    is(code: ApiErrorCode): boolean {
+        return this.code === code;
     }
 }
 
@@ -83,6 +105,15 @@ async function readBody(res: Response): Promise<unknown> {
     }
 }
 
+function parseRetryAfterSec(res: Response): number | undefined {
+    const ra = res.headers.get('retry-after');
+    if (!ra) return undefined;
+
+    const sec = Number(ra);
+    if (!Number.isFinite(sec)) return undefined;
+    return sec >= 0 ? sec : undefined;
+}
+
 async function doFetch(opts: RequestOptions): Promise<Response> {
     const headers: Record<string, string> = { ...(opts.headers ?? {}) };
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
@@ -125,6 +156,10 @@ function isAuthPath(path: string): boolean {
     );
 }
 
+function shouldEmitGlobalToast(err: ApiError): boolean {
+    return err.status === 429 || err.code === API_ERROR_CODES.TOO_MANY_REQUESTS;
+}
+
 export async function http<T>(opts: RequestOptions): Promise<T> {
     let res = await doFetch(opts);
 
@@ -140,15 +175,37 @@ export async function http<T>(opts: RequestOptions): Promise<T> {
     const data = await readBody(res);
 
     if (!res.ok) {
+        const retryAfterSec = parseRetryAfterSec(res);
+
         if (isErrorEnvelope(data)) {
-            throw new ApiError(data.error.message ?? `HTTP ${res.status}`, {
-                status: res.status,
-                code: data.error.code,
-                requestId: data.error.requestId,
-                details: data.error.details,
-            });
+            const err = new ApiError(
+                data.error.message ?? `HTTP ${res.status}`,
+                {
+                    status: res.status,
+                    code: data.error.code as ApiErrorCode,
+                    requestId: data.error.requestId,
+                    details: data.error.details,
+                    retryAfterSec,
+                },
+            );
+
+            if (shouldEmitGlobalToast(err)) {
+                emitApiError(err);
+            }
+
+            throw err;
         }
-        throw new ApiError(`HTTP ${res.status}`, { status: res.status });
+
+        const err = new ApiError(`HTTP ${res.status}`, {
+            status: res.status,
+            retryAfterSec,
+        });
+
+        if (shouldEmitGlobalToast(err)) {
+            emitApiError(err);
+        }
+
+        throw err;
     }
 
     return data as T;

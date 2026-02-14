@@ -1,5 +1,13 @@
-import { createContext, useState, ReactNode, useRef } from 'react';
+import {
+    createContext,
+    useEffect,
+    useRef,
+    useState,
+    type ReactNode,
+} from 'react';
 import ToastContainer from 'widgets/toastContainer';
+import { onApiError } from 'shared/api/events';
+import { ApiError, API_ERROR_CODES } from 'shared/api';
 
 export interface Toast {
     id: string;
@@ -42,6 +50,25 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
         );
     };
 
+    const removeToast = (id: string) => {
+        const timer = timers.current.get(id);
+        if (timer) {
+            clearTimeout(timer);
+            timers.current.delete(id);
+        }
+
+        const progressInterval = progressIntervals.current.get(id);
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressIntervals.current.delete(id);
+        }
+
+        remainingTime.current.delete(id);
+        startTime.current.delete(id);
+
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    };
+
     const addToast = (toast: Omit<Toast, 'id' | 'progress'>) => {
         const id = Math.random().toString(36).substring(2, 11);
         const newToast: Toast = { ...toast, id, progress: 0 };
@@ -76,36 +103,12 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
         }
     };
 
-    const removeToast = (id: string) => {
-        const timer = timers.current.get(id);
-        if (timer) {
-            clearTimeout(timer);
-            timers.current.delete(id);
-        }
-
-        const progressInterval = progressIntervals.current.get(id);
-        if (progressInterval) {
-            clearInterval(progressInterval);
-            progressIntervals.current.delete(id);
-        }
-
-        remainingTime.current.delete(id);
-        startTime.current.delete(id);
-
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    };
-
     const pauseToast = (id: string) => {
         const timer = timers.current.get(id);
         const progressInterval = progressIntervals.current.get(id);
 
-        if (timer) {
-            clearTimeout(timer);
-        }
-
-        if (progressInterval) {
-            clearInterval(progressInterval);
-        }
+        if (timer) clearTimeout(timer);
+        if (progressInterval) clearInterval(progressInterval);
 
         updateProgress(id, 0);
     };
@@ -140,6 +143,30 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
 
         progressIntervals.current.set(id, progressInterval);
     };
+
+    const lastRateToastAtRef = useRef(0);
+
+    useEffect(() => {
+        return onApiError((err) => {
+            if (!(err instanceof ApiError)) return;
+
+            const isRateLimit =
+                err.status === 429 ||
+                err.code === API_ERROR_CODES.TOO_MANY_REQUESTS;
+
+            if (!isRateLimit) return;
+
+            const now = Date.now();
+            if (now - lastRateToastAtRef.current < 1500) return;
+            lastRateToastAtRef.current = now;
+
+            addToast({
+                message: 'Слишком много попыток. Попробуйте позже.',
+                type: 'warning',
+                duration: 4000,
+            });
+        });
+    }, []);
 
     return (
         <ToastContext.Provider

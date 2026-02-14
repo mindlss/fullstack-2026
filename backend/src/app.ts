@@ -16,8 +16,16 @@ import swaggerSpec from './generated/swagger.json';
 
 import cors from 'cors';
 
+import {
+    generalRateLimit,
+    authRateLimit,
+    loginRateLimit,
+} from './http/middlewares/rateLimit.middleware';
+
 export function createApp() {
     const app = express();
+
+    // app.set('trust proxy', 1);
 
     app.use(
         cors({
@@ -75,14 +83,23 @@ export function createApp() {
 
     app.use(express.json({ limit: '2mb' }));
     app.use(express.urlencoded({ extended: true }));
-
     app.use(cookieParser());
-
-    RegisterRoutes(app);
 
     if (env.NODE_ENV !== 'production') {
         app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
     }
+
+    const api = express.Router();
+
+    api.use('/auth', authRateLimit);
+
+    api.use('/auth/login', loginRateLimit);
+
+    api.use(generalRateLimit);
+
+    RegisterRoutes(api);
+
+    app.use(api);
 
     app.use(notFoundMiddleware);
     app.use(errorMiddleware);
